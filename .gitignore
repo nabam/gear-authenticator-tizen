@@ -1,0 +1,16 @@
+### Tizen
+# Tizen project folders
+.*_delta*
+.build*
+.settings
+.sign*
+### Tizen project files
+*signature*.xml
+*.wgt
+Debug
+Release
+.package-stamp
+.cproject
+.tproject
+.project
+.exportMap

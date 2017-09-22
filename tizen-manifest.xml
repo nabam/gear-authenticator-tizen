@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns="http://tizen.org/ns/packages" api-version="2.3.1" package="net.nabam.wearable.otp" version="1.0.0">
+	<profile name="wearable" />
+	<ui-application appid="net.nabam.wearable.otp" exec="otp" type="capp" multiple="false" taskmanage="true" nodisplay="false">
+		<icon>otp.png</icon>
+		<label>Gear OTP</label>
+    <metadata key="accessory-services-location" value="/res/xml/accessoryservices.xml"/>
+    <metadata key="launch-on-attach" value="true"/>
+	</ui-application>
+  <privileges>
+    <privilege>http://developer.samsung.com/tizen/privilege/accessoryprotocol</privilege>
+  </privileges>
+  <feature name="http://tizen.org/feature/screen.size.normal">true</feature>
+  <feature name="http://tizen.org/feature/screen.shape.circle">true</feature>
+</manifest>
