@@ -4,13 +4,15 @@
 .build*
 .settings
 .sign*
+Debug
+Release
 ### Tizen project files
 *signature*.xml
 *.wgt
-Debug
-Release
+### Studio files
 .package-stamp
 .cproject
 .tproject
 .project
 .exportMap
+SA_Report
