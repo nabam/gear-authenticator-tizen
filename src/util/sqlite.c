@@ -1,12 +1,19 @@
 #include <string.h>
 #include <sqlite3.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <storage.h>
 #include <app_common.h>
-#include <stdio.h>
+#include <dlog.h>
 #include "util/sqlite.h"
 #include "main.h"
+
+#define DB_NAME        "otp.db"
+#define DB_TABLE_NAME  "entries"
+#define DB_COL_ID      "ID"
+#define DB_COL_TYPE    "TYPE"
+#define DB_COL_USER    "USER"
+#define DB_COL_COUNTER "COUNTER"
+#define DB_COL_SECRET  "SECRET"
+#define DB_LOG_TAG     "SQLITE:"
 
 sqlite3 *otp_db;
 
@@ -20,11 +27,9 @@ static int db_open()
   strcpy(path, data_path);
   strncat(path, DB_NAME, size);
 
-  dlog_print(DLOG_DEBUG, LOG_TAG, "DB Path = [%s]", path);
-
   int ret = sqlite3_open_v2( path , &otp_db, SQLITE_OPEN_CREATE|SQLITE_OPEN_READWRITE, NULL);
   if(ret != SQLITE_OK)
-    dlog_print(DLOG_ERROR, LOG_TAG, "DB Create Error! [%s]", sqlite3_errmsg(otp_db));
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" can't open database: %s", sqlite3_errmsg(otp_db));
 
   free(data_path);
   free(path);
@@ -45,18 +50,15 @@ int db_init()
                 "DB_COL_SECRET"  TEXT    NOT NULL, \
                 "DB_COL_ID"      INTEGER PRIMARY KEY AUTOINCREMENT);";
 
-  dlog_print(DLOG_DEBUG, LOG_TAG, "Create table query : %s", sql);
-
   ret = sqlite3_exec(otp_db, sql, NULL, 0, &err_msg);
   if(ret != SQLITE_OK)
   {
-    dlog_print(DLOG_ERROR, LOG_TAG, "Table Create Error! [%s]", err_msg);
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" create table query failed: %s", err_msg);
     sqlite3_free(err_msg);
     sqlite3_close(otp_db);
 
     return SQLITE_ERROR;
   }
-  dlog_print(DLOG_DEBUG, LOG_TAG, "DB Table created successfully");
   sqlite3_close(otp_db);
 
   return SQLITE_OK;
@@ -82,7 +84,7 @@ int db_insert(otp_info_s *data)
   ret = sqlite3_exec(otp_db, sql, insert_cb, 0, &err_msg);
   if (ret != SQLITE_OK)
   {
-    dlog_print(DLOG_ERROR, LOG_TAG, "Insertion Error! [%s]", sqlite3_errmsg(otp_db));
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" insert query failed: %s", sqlite3_errmsg(otp_db));
     sqlite3_free(err_msg);
     sqlite3_free(sql);
     sqlite3_close(otp_db);
@@ -102,7 +104,7 @@ static int select_all_cb(void *list, int count, char **data, char **columns){
   memset(temp, 0, sizeof(otp_info_s));
 
   if (temp == NULL){
-    dlog_print(DLOG_ERROR, LOG_TAG, "Cannot allocate memory for otp_info_s");
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" can't allocate memory for otp_info_s");
     return SQLITE_ERROR;
   } else {
             temp->type    = atoi(data[0]);
@@ -128,14 +130,13 @@ int db_select_all(GList** result)
   ret = sqlite3_exec(otp_db, sql, select_all_cb, (void *) result, &err_msg);
   if (ret != SQLITE_OK)
   {
-    dlog_print(DLOG_DEBUG, LOG_TAG, "Select query execution error [%s]", err_msg);
+    dlog_print(DLOG_DEBUG, LOG_TAG, DB_LOG_TAG" select query failed: %s", err_msg);
     sqlite3_free(err_msg);
     sqlite3_close(otp_db);
 
     return SQLITE_ERROR;
   }
 
-  dlog_print(DLOG_DEBUG, LOG_TAG, "select query execution success!");
   sqlite3_close(otp_db);
 
   return SQLITE_OK;
@@ -159,7 +160,7 @@ int db_delete_id(int id)
   ret = sqlite3_exec(otp_db, sql, delete_cb, &counter, &err_msg);
   if (ret != SQLITE_OK)
   {
-    dlog_print(DLOG_ERROR, LOG_TAG, "Delete Error! [%s]", err_msg);
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" delete query failed: %s", err_msg);
     sqlite3_free(sql);
     sqlite3_free(err_msg);
     sqlite3_close(otp_db);

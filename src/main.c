@@ -1,6 +1,10 @@
 #include <json-glib.h>
 #include <system_info.h>
+#include <app.h>
+#include <system_settings.h>
+#include <dlog.h>
 #include "main.h"
+#include "util/sap.h"
 #include "util/otp.h"
 #include "util/sqlite.h"
 

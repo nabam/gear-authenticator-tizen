@@ -1,12 +1,9 @@
-#ifndef __otp_H__
-#define __otp_H__
+#ifndef __OTP_H__
+#define __OTP_H__
 
-#include <app.h>
-#include <Elementary.h>
-#include <system_settings.h>
-#include <efl_extension.h>
-#include <dlog.h>
 #include <glib.h>
+#include <Elementary.h>
+#include <efl_extension.h>
 
 #ifdef  LOG_TAG
 #undef  LOG_TAG
@@ -42,7 +39,6 @@ typedef struct otp_info_item {
   int  id;
 } otp_info_s;
 
-void initialize_sap();
 void add_entry(char *);
 
-#endif /* __otp_H__ */
+#endif /* __OTP_H__ */
