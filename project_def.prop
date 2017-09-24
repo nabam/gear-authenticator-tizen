@@ -1,9 +1,9 @@
 APPNAME = otp
 
 type = app
-profile = wearable-2.3.1
+profile = wearable-2.3.2
 
-USER_SRCS = src/*.c src/otp/*.c
+USER_SRCS = src/*.c src/util/*.c
 USER_DEFS =
 USER_INC_DIRS = inc
 USER_OBJS =

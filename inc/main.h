@@ -26,7 +26,16 @@ typedef struct appdata {
 	Evas_Object *progressbar;
 	Eext_Circle_Surface *c_surface;
   Ecore_Timer *timer;
+  Eina_List   *entries;
 } appdata_s;
+
+typedef struct otp_info_item {
+  int type;
+  char user[255];
+  char secret[255];
+  int counter;
+  int id;
+} otp_info_s;
 
 void initialize_sap();
 void add_uri(char *);

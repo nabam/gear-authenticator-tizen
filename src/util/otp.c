@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "otp/base32.h"
-#include "otp/hmac.h"
-#include "otp/sha1.h"
-#include "otp/otp.h"
+#include "util/base32.h"
+#include "util/hmac.h"
+#include "util/sha1.h"
+#include "util/otp.h"
 
 static uint8_t *get_shared_secret(const char *secret_string, int *secretLen) {
   if (!secret_string) {

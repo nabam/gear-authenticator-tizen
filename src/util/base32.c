@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #include <string.h>
-#include "otp/base32.h"
+#include "util/base32.h"
 
 int base32_decode(const uint8_t *encoded, uint8_t *result, int bufSize) {
   int buffer = 0;

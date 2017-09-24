@@ -45,7 +45,7 @@
 #include <sys/types.h> // Defines BYTE_ORDER, iff _BSD_SOURCE is defined
 #include <string.h>
 
-#include "otp/sha1.h"
+#include "util/sha1.h"
 
 #if !defined(BYTE_ORDER)
 #if defined(_BIG_ENDIAN)

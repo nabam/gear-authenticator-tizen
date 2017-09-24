@@ -17,8 +17,8 @@
 
 #include <string.h>
 
-#include "otp/hmac.h"
-#include "otp/sha1.h"
+#include "util/hmac.h"
+#include "util/sha1.h"
 
 void hmac_sha1(const uint8_t *key, int keyLength,
                const uint8_t *data, int dataLength,
