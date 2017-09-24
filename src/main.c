@@ -13,16 +13,15 @@ static const char *CODE_LABEL = "<font font_weight=Regular font_size=75>%06d</fo
 
 static appdata_s *state;
 
-static int
-update_code(appdata_s *ad) {
+static void update_code_view() {
   char code[255], label[255];
-  int expires;
+  int expires = 0;
 
-  if (ad->entries != NULL && ad->entries->data != NULL) {
-    otp_info_s *entry = (otp_info_s *) (ad->entries->data);
+  if (state->entries != NULL && state->entries->data != NULL) {
+    otp_info_s *entry = (otp_info_s *) (state->entries->data);
 
     snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
-    elm_object_text_set(ad->code_label, code);
+    elm_object_text_set(state->code_label, code);
 
     char text[255] = {'\0'};
     strncpy(text, entry->user, 254);
@@ -36,24 +35,22 @@ update_code(appdata_s *ad) {
       snprintf(label, 255, NAME_LABEL, text);
     }
 
-    if (strcmp(elm_object_text_get(ad->name_label), label) != 0) {
-      elm_object_text_set(ad->name_label, label);
-      elm_label_slide_go(ad->name_label);
+    if (strcmp(elm_object_text_get(state->name_label), label) != 0) {
+      elm_object_text_set(state->name_label, label);
+      elm_label_slide_go(state->name_label);
     }
-
-    return expires;
   }
 
-  return 0;
+  state->seconds = expires;
+  eext_circle_object_value_set(state->progressbar, state->seconds);
 }
 
 static Eina_Bool _timer_start_cb(void *data) {
-  appdata_s *ad = (appdata_s *) data;
-  if (--ad->seconds < 1) {
-    ad->seconds = update_code(ad);
+  if (--state->seconds < 1) {
+    update_code_view();
+  } else {
+    eext_circle_object_value_set(state->progressbar, state->seconds);
   }
-
-  eext_circle_object_value_set(ad->progressbar, ad->seconds);
 
   return ECORE_CALLBACK_RENEW;
 }
@@ -64,8 +61,7 @@ void reload_database() {
     state->entries = NULL;
   }
   db_select_all(&state->entries);
-  state->seconds = update_code(state);
-  eext_circle_object_value_set(state->progressbar, state->seconds);
+  update_code_view(state);
   dlog_print(DLOG_DEBUG, LOG_TAG, "reload_database() reloaded");
 }
 
@@ -170,22 +166,18 @@ end:
   return;
 }
 
-static void
-win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
+static void win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
 {
   ui_app_exit();
 }
 
-static void
-win_back_cb(void *data, Evas_Object *obj, void *event_info)
+static void win_back_cb(void *data, Evas_Object *obj, void *event_info)
 {
-  appdata_s *ad = data;
   /* Let window go to hide state. */
-  elm_win_lower(ad->win);
+  elm_win_lower(state->win);
 }
 
-static void
-create_base_gui()
+static void create_base_gui()
 {
   /* Window */
   state->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
@@ -249,8 +241,7 @@ create_base_gui()
   evas_object_show(state->win);
 }
 
-static bool
-app_create(void *data)
+static bool app_create(void *data)
 {
   /* Hook to take necessary actions before main event loop starts
     Initialize UI resources and application's data
@@ -259,47 +250,44 @@ app_create(void *data)
   state = data;
 
   create_base_gui();
-
   reload_database();
-  eext_circle_object_value_set(state->progressbar, state->seconds);
 
   evas_object_show(state->name_label);
   evas_object_show(state->code_label);
 
   /* Schedule update */
-  state->timer = ecore_timer_add(1.0f, _timer_start_cb, state);
+  state->timer = ecore_timer_add(1.0f, _timer_start_cb, NULL);
 
   initialize_sap();
 
   return true;
 }
 
-static void
-app_control(app_control_h app_control, void *data)
+static void app_control(app_control_h app_control, void *data)
 {
   /* Handle the launch request. */
 }
 
-static void
-app_pause(void *data)
+static void app_pause(void *data)
 {
   /* Take necessary actions when application becomes invisible. */
 }
 
-static void
-app_resume(void *data)
+static void app_resume(void *data)
 {
   /* Take necessary actions when application becomes visible. */
 }
 
-static void
-app_terminate(void *data)
+static void app_terminate(void *data)
 {
   /* Release all resources. */
+  if (state->entries != NULL) {
+    g_list_free_full(state->entries, free);
+    state->entries = NULL;
+  }
 }
 
-static void
-ui_app_lang_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_lang_changed(app_event_info_h event_info, void *user_data)
 {
   /*APP_EVENT_LANGUAGE_CHANGED*/
   char *locale = NULL;
@@ -309,33 +297,28 @@ ui_app_lang_changed(app_event_info_h event_info, void *user_data)
   return;
 }
 
-static void
-ui_app_orient_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_orient_changed(app_event_info_h event_info, void *user_data)
 {
   /*APP_EVENT_DEVICE_ORIENTATION_CHANGED*/
   return;
 }
 
-static void
-ui_app_region_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_region_changed(app_event_info_h event_info, void *user_data)
 {
   /*APP_EVENT_REGION_FORMAT_CHANGED*/
 }
 
-static void
-ui_app_low_battery(app_event_info_h event_info, void *user_data)
+static void ui_app_low_battery(app_event_info_h event_info, void *user_data)
 {
   /*APP_EVENT_LOW_BATTERY*/
 }
 
-static void
-ui_app_low_memory(app_event_info_h event_info, void *user_data)
+static void ui_app_low_memory(app_event_info_h event_info, void *user_data)
 {
   /*APP_EVENT_LOW_MEMORY*/
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
   appdata_s ad = {0};
   int ret = 0;
