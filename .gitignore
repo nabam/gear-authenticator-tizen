@@ -17,3 +17,5 @@ Release
 .exportMap
 crash-info
 SA_Report
+
+*.swp

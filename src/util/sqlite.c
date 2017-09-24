@@ -13,7 +13,7 @@ sqlite3 *otp_db;
 static int db_open()
 {
   char *data_path = app_get_data_path();
-  int size = strlen(data_path) + 10;
+  int size = strlen(data_path) + strlen(DB_NAME) + 1;
 
   char *path = malloc(sizeof(char) * size);
 
@@ -97,25 +97,26 @@ int db_insert(otp_info_s *data)
 }
 
 static int select_all_cb(void *list, int count, char **data, char **columns){
-  Eina_List **head = (Eina_List **) list;
+  GList **head = (GList **) list;
   otp_info_s *temp = (otp_info_s*) malloc(sizeof(otp_info_s));
+  memset(temp, 0, sizeof(otp_info_s));
 
   if (temp == NULL){
     dlog_print(DLOG_ERROR, LOG_TAG, "Cannot allocate memory for otp_info_s");
     return SQLITE_ERROR;
   } else {
-           temp->type    = atoi(data[0]);
-    strcpy(temp->user,          data[1]);
+            temp->type    = atoi(data[0]);
+    strncpy(temp->user,          data[1], 254);
            temp->counter = atoi(data[2]);
-    strcpy(temp->secret,        data[3]);
-           temp->id      = atoi(data[4]);
+    strncpy(temp->secret,        data[3], 254);
+            temp->id      = atoi(data[4]);
   }
 
-  *head = eina_list_append(*head, temp);
+  *head = g_list_append(*head, temp);
   return SQLITE_OK;
 }
 
-int db_select_all(Eina_List** result)
+int db_select_all(GList** result)
 {
   if(db_open() != SQLITE_OK)
     return SQLITE_ERROR;

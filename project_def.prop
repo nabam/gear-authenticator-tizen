@@ -1,7 +1,7 @@
 APPNAME = otp
 
 type = app
-profile = wearable-2.3.2
+profile = wearable-2.3.1
 
 USER_SRCS = src/*.c src/util/*.c
 USER_DEFS =

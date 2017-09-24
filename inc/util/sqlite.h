@@ -13,7 +13,7 @@
 
 int db_init();
 int db_insert(otp_info_s *data);
-int db_select_all(Eina_List** result);
+int db_select_all(GList** result);
 int db_delete_id(int id);
 
 #endif /* __UTIL_SQLITE_H__ */

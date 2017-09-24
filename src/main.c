@@ -1,11 +1,170 @@
+#include <json-glib.h>
+#include <system_info.h>
 #include "main.h"
 #include "util/otp.h"
 #include "util/sqlite.h"
 
-static const char *NAME_LABEL = "<font font_weight=Bold font_size=40>%s</font>";
-static const char *CODE_LABEL = "<font font_weight=Regular font_size=70>%06d</font>";
+static const char *NAME_LABEL = "<font font_weight=Bold font_size=40><align=center> %s </align></font>";
+static const char *CODE_LABEL = "<font font_weight=Regular font_size=75>%06d</font>";
 
-void add_uri(char *data) { }
+static appdata_s *state;
+
+static int
+update_code(appdata_s *ad) {
+  char code[255], label[255];
+  int expires;
+
+  if (ad->entries != NULL && ad->entries->data != NULL) {
+    otp_info_s *entry = (otp_info_s *) (ad->entries->data);
+
+    snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
+    elm_object_text_set(ad->code_label, code);
+
+    char text[255] = {'\0'};
+    strncpy(text, entry->user, 254);
+    char* p = strchr(text, ':');
+    if (p != NULL) {
+      *(p++) = '\0';
+      char res[255];
+      snprintf(res, 255, "%s <br/> %s", text, p);
+      snprintf(label, 255, NAME_LABEL, res);
+    } else {
+      snprintf(label, 255, NAME_LABEL, text);
+    }
+
+    if (strcmp(elm_object_text_get(ad->name_label), label) != 0) {
+      elm_object_text_set(ad->name_label, label);
+      elm_label_slide_go(ad->name_label);
+    }
+
+    return expires;
+  }
+
+  return 0;
+}
+
+static Eina_Bool _timer_start_cb(void *data) {
+  appdata_s *ad = (appdata_s *) data;
+  if (--ad->seconds < 1) {
+    ad->seconds = update_code(ad);
+  }
+
+  eext_circle_object_value_set(ad->progressbar, ad->seconds);
+
+  return ECORE_CALLBACK_RENEW;
+}
+
+void reload_database() {
+  if (state->entries != NULL) {
+    g_list_free_full(state->entries, free);
+    state->entries = NULL;
+  }
+  db_select_all(&state->entries);
+  state->seconds = update_code(state);
+  eext_circle_object_value_set(state->progressbar, state->seconds);
+  dlog_print(DLOG_DEBUG, LOG_TAG, "reload_database() reloaded");
+}
+
+void add_entry(char *data) {
+  JsonParser *parser = json_parser_new();
+  GError *error = NULL;
+
+  json_parser_load_from_data(parser, data, strlen(data), &error);
+  if (error != NULL) {
+    dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() json parser failed: %s", error);
+    g_error_free(error);
+    goto end;
+  }
+
+  JsonNode *root = json_parser_get_root(parser);
+  if (!(root != NULL && JSON_NODE_TYPE(root) == JSON_NODE_OBJECT)) {
+    dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() got wrong json");
+    goto end;
+  }
+
+  JsonObject *object;
+  object = json_node_get_object(root);
+  if (object == NULL) {
+    dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() empty json object");
+    goto end;
+  }
+
+  guint size = json_object_get_size(object);
+
+  GList *keys = json_object_get_members(object);
+  GList *values = json_object_get_values(object);
+  GList *keys_c = keys;
+  GList *values_c = values;
+
+  otp_info_s result = {0};
+
+  for (int i = 0; i < size; i++) {
+    if (keys_c) {
+      gchar *key = (gchar*)(keys_c->data);
+
+      if (values_c) {
+        JsonNode *value = (JsonNode*)(values_c->data);
+
+        if (!(value != NULL && JSON_NODE_TYPE(value) == JSON_NODE_VALUE)) {
+          dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+          goto free;
+        }
+
+        if (strcmp(key, "type") == 0) {
+          const gchar *type = json_node_get_string(value);
+          if (type == NULL) {
+            dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+            goto free;
+          }
+          if (strcmp(type, "TOTP") == 0) result.type = TOTP;
+          else if (strcmp(type, "HOTP") == 0) result.type = HOTP;
+        } else if (strcmp(key, "counter") == 0) {
+          result.counter = json_node_get_int(value);
+        } else if (strcmp(key, "user") == 0) {
+          const gchar *user = json_node_get_string(value);
+          if (user == NULL) {
+            dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+            goto free;
+          }
+          strncpy(result.user, user, 254);
+        } else if (strcmp(key, "secret") == 0) {
+          const gchar *secret = json_node_get_string(value);
+          if (secret == NULL) {
+            dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+            goto free;
+          }
+          strncpy(result.secret, secret, 254);
+        }
+      } else {
+        dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+        goto free;
+      }
+    } else {
+      dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+      goto free;
+    }
+
+    keys_c = g_list_next(keys_c);
+    values_c = g_list_next(values_c);
+  }
+
+  if (result.user[0] != '\0' && result.secret[0] != '\0') {
+    dlog_print(DLOG_DEBUG, LOG_TAG, "add_entry() adding new entry to database");
+    db_insert(&result);
+    reload_database();
+  } else {
+    dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
+    goto free;
+  }
+
+free:
+  if (keys   != NULL) g_list_free(keys);
+  if (values != NULL) g_list_free(values);
+end:
+  g_object_unref(parser);
+
+  return;
+}
 
 static void
 win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
@@ -21,95 +180,69 @@ win_back_cb(void *data, Evas_Object *obj, void *event_info)
   elm_win_lower(ad->win);
 }
 
-static int
-update_code(appdata_s *ad) {
-  char code[255], label[255];
-  int expires;
-  otp_info_s *entry = (otp_info_s *) eina_list_data_get(eina_list_last(ad->entries));
-
-  if (entry != NULL) {
-    snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
-    elm_object_text_set(ad->code_label, code);
-
-    snprintf(label, 255, NAME_LABEL, entry->user);
-    elm_object_text_set(ad->name_label, label);
-
-    elm_label_slide_go(ad->name_label);
-
-    return expires;
-  }
-
-  return 0;
-}
-
 static void
-create_base_gui(appdata_s *ad)
+create_base_gui()
 {
   /* Window */
-  ad->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
-  elm_win_autodel_set(ad->win, EINA_TRUE);
+  state->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
+  elm_win_autodel_set(state->win, EINA_TRUE);
 
-  if (elm_win_wm_rotation_supported_get(ad->win)) {
+  if (elm_win_wm_rotation_supported_get(state->win)) {
     int rots[4] = { 0, 90, 180, 270 };
-    elm_win_wm_rotation_available_rotations_set(ad->win, (const int *)(&rots), 4);
+    elm_win_wm_rotation_available_rotations_set(state->win, (const int *)(&rots), 4);
   }
 
-  evas_object_smart_callback_add(ad->win, "delete,request", win_delete_request_cb, NULL);
-  eext_object_event_callback_add(ad->win, EEXT_CALLBACK_BACK, win_back_cb, ad);
+  evas_object_smart_callback_add(state->win, "delete,request", win_delete_request_cb, NULL);
+  eext_object_event_callback_add(state->win, EEXT_CALLBACK_BACK, win_back_cb, state);
 
   /* Conformant */
-  ad->conform = elm_conformant_add(ad->win);
-  elm_win_indicator_mode_set(ad->win, ELM_WIN_INDICATOR_SHOW);
-  elm_win_indicator_opacity_set(ad->win, ELM_WIN_INDICATOR_OPAQUE);
-  evas_object_size_hint_weight_set(ad->conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  elm_win_resize_object_add(ad->win, ad->conform);
-  evas_object_show(ad->conform);
+  state->conform = elm_conformant_add(state->win);
+  elm_win_indicator_mode_set(state->win, ELM_WIN_INDICATOR_SHOW);
+  elm_win_indicator_opacity_set(state->win, ELM_WIN_INDICATOR_OPAQUE);
+  evas_object_size_hint_weight_set(state->conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  elm_win_resize_object_add(state->win, state->conform);
+  evas_object_show(state->conform);
 
   /* Box */
-  ad->box = elm_box_add(ad->conform);
-  elm_object_content_set(ad->conform, ad->box);
-  elm_box_align_set(ad->box, EVAS_HINT_FILL, 0.5);
-  evas_object_show(ad->box);
+  state->box = elm_box_add(state->conform);
+  elm_object_content_set(state->conform, state->box);
+  elm_box_align_set(state->box, EVAS_HINT_FILL, 0.5);
+  evas_object_size_hint_weight_set(state->box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_show(state->box);
 
   /* Name label */
-  ad->name_label = elm_label_add(ad->box);
-  elm_label_wrap_width_set(ad->name_label, 380);
-  evas_object_size_hint_align_set(ad->name_label, 0.5,0.5);
-  evas_object_size_hint_weight_set(ad->name_label, EVAS_HINT_EXPAND, 0);
-
-  elm_object_style_set(ad->name_label, "slide_bounce");
-  elm_label_slide_mode_set(ad->name_label, ELM_LABEL_SLIDE_MODE_AUTO);
-
-  elm_box_pack_end(ad->box, ad->name_label);
-
-  /* Code label */
-  ad->code_label = elm_label_add(ad->box);
-  evas_object_size_hint_align_set(ad->code_label, 0.5,0.5);
-  evas_object_size_hint_weight_set(ad->code_label, EVAS_HINT_EXPAND, 0);
-
-  elm_box_pack_end(ad->box, ad->code_label);
-
-  /* Progress */
-  ad->c_surface = eext_circle_surface_conformant_add(ad->conform);
-
-  ad->progressbar = eext_circle_object_progressbar_add(ad->win, ad->c_surface);
-  eext_circle_object_value_min_max_set(ad->progressbar, 0, TOTP_STEP_SIZE);
-
-  evas_object_show(ad->progressbar);
-
-  /* Show window after base gui is set up */
-  evas_object_show(ad->win);
-}
-
-static Eina_Bool _timer_start_cb(void *data) {
-  appdata_s *ad = (appdata_s *) data;
-  if (--ad->seconds < 1) {
-    ad->seconds = update_code(ad);
+  int ww;
+  if(system_info_get_platform_int("tizen.org/feature/screen.width", &ww) == SYSTEM_INFO_ERROR_NONE) {
+    ww = 350;
   }
 
-  eext_circle_object_value_set(ad->progressbar, ad->seconds);
+  state->name_label = elm_label_add(state->box);
+  elm_label_wrap_width_set(state->name_label, ww);
+  evas_object_size_hint_align_set(state->name_label, 0.5, 0.5);
+  evas_object_size_hint_weight_set(state->name_label, EVAS_HINT_EXPAND, 0);
 
-  return ECORE_CALLBACK_RENEW;
+  elm_object_style_set(state->name_label, "slide_bounce");
+  elm_label_slide_mode_set(state->name_label, ELM_LABEL_SLIDE_MODE_AUTO);
+
+  elm_box_pack_end(state->box, state->name_label);
+
+  /* Code label */
+  state->code_label = elm_label_add(state->box);
+  evas_object_size_hint_align_set(state->code_label, 0.5, 0.5);
+  evas_object_size_hint_weight_set(state->code_label, EVAS_HINT_EXPAND, 0);
+
+  elm_box_pack_end(state->box, state->code_label);
+
+  /* Progress */
+  state->c_surface = eext_circle_surface_conformant_add(state->conform);
+
+  state->progressbar = eext_circle_object_progressbar_add(state->win, state->c_surface);
+  eext_circle_object_value_min_max_set(state->progressbar, 0, TOTP_STEP_SIZE);
+
+  evas_object_show(state->progressbar);
+
+  /* Show window after base gui is set up */
+  evas_object_show(state->win);
 }
 
 static bool
@@ -119,30 +252,18 @@ app_create(void *data)
     Initialize UI resources and application's data
     If this function returns true, the main loop of application starts
     If this function returns false, the application is terminated */
-  appdata_s *ad = data;
+  state = data;
 
-  db_select_all(&ad.entries);
+  create_base_gui();
 
-  if (ad.entries == NULL) {
-    otp_info_s test;
-    test.type = 0;
-    test.counter = 0;
-    strcpy(test.secret, "zzzzzzzz");
-    strcpy(test.user, "test@example.com");
+  reload_database();
+  eext_circle_object_value_set(state->progressbar, state->seconds);
 
-    db_insert(&test);
-  }
-
-  create_base_gui(ad);
-
-  ad->seconds = update_code(ad);
-  eext_circle_object_value_set(ad->progressbar, ad->seconds);
-
-  evas_object_show(ad->name_label);
-  evas_object_show(ad->code_label);
+  evas_object_show(state->name_label);
+  evas_object_show(state->code_label);
 
   /* Schedule update */
-  ad->timer = ecore_timer_add(1.0f, _timer_start_cb, ad);
+  state->timer = ecore_timer_add(1.0f, _timer_start_cb, state);
 
   initialize_sap();
 
@@ -212,11 +333,11 @@ ui_app_low_memory(app_event_info_h event_info, void *user_data)
 int
 main(int argc, char *argv[])
 {
-  appdata_s ad = {NULL};
+  appdata_s ad = {0};
   int ret = 0;
 
-  ui_app_lifecycle_callback_s event_callback = {0,};
-  app_event_handler_h handlers[5] = {NULL, };
+  ui_app_lifecycle_callback_s event_callback = {0};
+  app_event_handler_h handlers[5] = {NULL};
 
   db_init();
 
