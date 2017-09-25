@@ -14,30 +14,35 @@
 #define PACKAGE "net.nabam.wearable.otp"
 #endif
 
-typedef struct appdata {
-  Evas_Object         *win;
-  int                 seconds;
-  Evas_Object         *conform;
-  Evas_Object         *name_label;
-  Evas_Object         *code_label;
-  Evas_Object         *box;
-  Evas_Object         *progressbar;
-  Ecore_Timer         *timer;
-  GList               *entries;
-  Eext_Circle_Surface *c_surface;
-} appdata_s;
-
 typedef enum otp_type {
   TOTP, HOTP
 } otp_type_e;
 
-typedef struct otp_info_item {
+typedef struct otp_info {
   otp_type_e type;
   char user[255];
   char secret[255];
   int  counter;
   int  id;
 } otp_info_s;
+
+typedef struct appdata {
+  Evas_Object         *win;
+  Evas_Object         *conform;
+  Evas_Object         *layout;
+  Evas_Object         *nf;
+  Eext_Circle_Surface *circle_surface;
+} appdata_s;
+
+typedef struct code_view_data {
+  int                 seconds;
+  Evas_Object         *name_label;
+  Evas_Object         *code_label;
+  Evas_Object         *box;
+  Evas_Object         *progressbar;
+  Ecore_Timer         *timer;
+  otp_info_s          *entry;
+} code_view_data_s;
 
 void add_entry(char *);
 

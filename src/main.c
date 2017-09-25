@@ -11,59 +11,50 @@
 static const char *NAME_LABEL = "<font font_weight=Bold font_size=40><align=center> %s </align></font>";
 static const char *CODE_LABEL = "<font font_weight=Regular font_size=75>%06d</font>";
 
-static appdata_s *state;
+static int get_otp_issuer(char* item, char *res) {
+  snprintf(res, 255, item);
+  char* p = strchr(res, ':');
 
-static void update_code_view() {
-  char code[255], label[255];
-  int expires = 0;
-
-  if (state->entries != NULL && state->entries->data != NULL) {
-    otp_info_s *entry = (otp_info_s *) (state->entries->data);
-
-    snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
-    elm_object_text_set(state->code_label, code);
-
-    char text[255] = {'\0'};
-    strncpy(text, entry->user, 254);
-    char* p = strchr(text, ':');
-    if (p != NULL) {
-      *(p++) = '\0';
-      char res[255];
-      snprintf(res, 255, "%s <br/> %s", text, p);
-      snprintf(label, 255, NAME_LABEL, res);
-    } else {
-      snprintf(label, 255, NAME_LABEL, text);
-    }
-
-    if (strcmp(elm_object_text_get(state->name_label), label) != 0) {
-      elm_object_text_set(state->name_label, label);
-      elm_label_slide_go(state->name_label);
-    }
+  if (p != NULL) {
+    *p = '\0';
+    return true;
   }
 
-  state->seconds = expires;
-  eext_circle_object_value_set(state->progressbar, state->seconds);
+  return false;
+}
+
+static void get_otp_account(char* item, char *res) {
+  char* p = strchr(item, ':');
+  if (p == NULL) p = item;
+
+  snprintf(res, 255, ++p);
+}
+
+static void get_code(code_view_data_s *cvd) {
+  int expires = 0;
+  char code[255];
+  otp_info_s *entry = (otp_info_s *) (cvd->entry);
+
+  if (entry != NULL) {
+    snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
+    elm_object_text_set(cvd->code_label, code);
+  }
+
+  cvd->seconds = expires;
 }
 
 static Eina_Bool _timer_start_cb(void *data) {
-  if (--state->seconds < 1) {
-    update_code_view();
-  } else {
-    eext_circle_object_value_set(state->progressbar, state->seconds);
+  code_view_data_s *cvd = data;
+
+  if (--cvd->seconds < 1) {
+    get_code(cvd);
   }
+
+  eext_circle_object_value_set(cvd->progressbar, cvd->seconds);
 
   return ECORE_CALLBACK_RENEW;
 }
 
-void reload_database() {
-  if (state->entries != NULL) {
-    g_list_free_full(state->entries, free);
-    state->entries = NULL;
-  }
-  db_select_all(&state->entries);
-  update_code_view(state);
-  dlog_print(DLOG_DEBUG, LOG_TAG, "reload_database() reloaded");
-}
 
 void add_entry(char *data) {
   JsonParser *parser = json_parser_new();
@@ -151,7 +142,6 @@ void add_entry(char *data) {
   if (result.user[0] != '\0' && result.secret[0] != '\0') {
     dlog_print(DLOG_DEBUG, LOG_TAG, "add_entry() adding new entry to database");
     db_insert(&result);
-    reload_database();
   } else {
     dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
     goto free;
@@ -171,74 +161,207 @@ static void win_delete_request_cb(void *data, Evas_Object *obj, void *event_info
   ui_app_exit();
 }
 
-static void win_back_cb(void *data, Evas_Object *obj, void *event_info)
+/*static void win_back_cb(void *data, Evas_Object *obj, void *event_info)*/
+/*{*/
+  /*appdata_s *ad = (appdata_s *)data;*/
+  /*[> Let window go to hide state. <]*/
+  /*elm_win_lower(ad->win);*/
+/*}*/
+
+static void create_code_view_cb(void *data, Evas_Object *obj, void *event_info)
 {
-  /* Let window go to hide state. */
-  elm_win_lower(state->win);
-}
-
-static void create_base_gui()
-{
-  /* Window */
-  state->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
-  elm_win_autodel_set(state->win, EINA_TRUE);
-
-  if (elm_win_wm_rotation_supported_get(state->win)) {
-    int rots[4] = { 0, 90, 180, 270 };
-    elm_win_wm_rotation_available_rotations_set(state->win, (const int *)(&rots), 4);
-  }
-
-  evas_object_smart_callback_add(state->win, "delete,request", win_delete_request_cb, NULL);
-  eext_object_event_callback_add(state->win, EEXT_CALLBACK_BACK, win_back_cb, state);
-
-  /* Conformant */
-  state->conform = elm_conformant_add(state->win);
-  elm_win_indicator_mode_set(state->win, ELM_WIN_INDICATOR_SHOW);
-  elm_win_indicator_opacity_set(state->win, ELM_WIN_INDICATOR_OPAQUE);
-  evas_object_size_hint_weight_set(state->conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  elm_win_resize_object_add(state->win, state->conform);
-  evas_object_show(state->conform);
+  if (!data) return;
+  appdata_s *ad = (appdata_s *)data;
+  code_view_data_s *cvd = calloc(1, sizeof(code_view_data_s));
+  cvd->entry = elm_object_item_data_get((Elm_Object_Item *) event_info);
 
   /* Box */
-  state->box = elm_box_add(state->conform);
-  elm_object_content_set(state->conform, state->box);
-  elm_box_align_set(state->box, EVAS_HINT_FILL, 0.5);
-  evas_object_size_hint_weight_set(state->box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  evas_object_show(state->box);
+  cvd->box = elm_box_add(ad->nf);
+  elm_box_align_set(cvd->box, EVAS_HINT_FILL, 0.5);
+  evas_object_size_hint_weight_set(cvd->box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  evas_object_show(cvd->box);
 
   /* Name label */
-  int ww;
-  if(system_info_get_platform_int("tizen.org/feature/screen.width", &ww) == SYSTEM_INFO_ERROR_NONE) {
-    ww = 350;
+  cvd->name_label = elm_label_add(cvd->box);
+  evas_object_size_hint_align_set(cvd->name_label, 0.5, 0.5);
+  evas_object_size_hint_weight_set(cvd->name_label, EVAS_HINT_EXPAND, 0);
+
+  char label[255], issuer[255], account[255];
+  get_otp_account(cvd->entry->user, account);
+  if (get_otp_issuer(cvd->entry->user, issuer)) {
+    char res[255];
+    snprintf(res, 255, "%s <br/> %s", issuer, account);
+    snprintf(label, 255, NAME_LABEL, res);
+  } else {
+    snprintf(label, 255, NAME_LABEL, account);
   }
 
-  state->name_label = elm_label_add(state->box);
-  elm_label_wrap_width_set(state->name_label, ww);
-  evas_object_size_hint_align_set(state->name_label, 0.5, 0.5);
-  evas_object_size_hint_weight_set(state->name_label, EVAS_HINT_EXPAND, 0);
-
-  elm_object_style_set(state->name_label, "slide_bounce");
-  elm_label_slide_mode_set(state->name_label, ELM_LABEL_SLIDE_MODE_AUTO);
-
-  elm_box_pack_end(state->box, state->name_label);
+  elm_object_text_set(cvd->name_label, label);
+  evas_object_show(cvd->name_label);
+  elm_box_pack_end(cvd->box, cvd->name_label);
 
   /* Code label */
-  state->code_label = elm_label_add(state->box);
-  evas_object_size_hint_align_set(state->code_label, 0.5, 0.5);
-  evas_object_size_hint_weight_set(state->code_label, EVAS_HINT_EXPAND, 0);
+  cvd->code_label = elm_label_add(cvd->box);
+  evas_object_size_hint_align_set(cvd->code_label, 0.5, 0.5);
+  evas_object_size_hint_weight_set(cvd->code_label, EVAS_HINT_EXPAND, 0);
 
-  elm_box_pack_end(state->box, state->code_label);
+  get_code(cvd);
+  evas_object_show(cvd->code_label);
+  elm_box_pack_end(cvd->box, cvd->code_label);
 
   /* Progress */
-  state->c_surface = eext_circle_surface_conformant_add(state->conform);
+  cvd->progressbar = eext_circle_object_progressbar_add(ad->win, ad->circle_surface);
+  eext_circle_object_value_min_max_set(cvd->progressbar, 0, TOTP_STEP_SIZE);
+  eext_circle_object_value_set(cvd->progressbar, cvd->seconds);
 
-  state->progressbar = eext_circle_object_progressbar_add(state->win, state->c_surface);
-  eext_circle_object_value_min_max_set(state->progressbar, 0, TOTP_STEP_SIZE);
+  evas_object_show(cvd->progressbar);
 
-  evas_object_show(state->progressbar);
 
-  /* Show window after base gui is set up */
-  evas_object_show(state->win);
+  /* Schedule update */
+  cvd->timer = ecore_timer_add(1.0f, _timer_start_cb, cvd);
+
+  elm_naviframe_item_push(ad->nf, NULL, NULL, NULL, cvd->box, "empty");
+}
+
+static char * _gl_text_get(void *data, Evas_Object *obj, const char *part)
+{
+  if (data == NULL) return NULL;
+
+  char account[255];
+  char issuer[255];
+  otp_info_s *entry = (otp_info_s *) data;
+
+  get_otp_account(entry->user, account);
+  get_otp_issuer(entry->user, issuer);
+
+  if (issuer[0] != '\0') {
+    if (!strcmp(part, "elm.text.1")) {
+      return strdup(account);
+    } else {
+      return strdup(issuer);
+    }
+  } else {
+    if (!strcmp(part, "elm.text.1")) {
+      return NULL;
+    } else {
+      return strdup(account);
+    }
+  }
+}
+
+static Eina_Bool _naviframe_pop_cb(void *data, Elm_Object_Item *it)
+{
+  ui_app_exit();
+  return EINA_FALSE;
+}
+
+static void create_main_menu(void *data) {
+  appdata_s *ad = (appdata_s *)data;
+  Evas_Object *genlist = NULL;
+  Evas_Object *circle_genlist = NULL;
+
+  /* Create item class */
+  Elm_Genlist_Item_Class *ptc = elm_genlist_item_class_new();
+  Elm_Genlist_Item_Class *itc = elm_genlist_item_class_new();
+
+  itc->item_style = "2text";
+  itc->func.text_get = _gl_text_get;
+
+  ptc->item_style = "padding";
+
+  genlist = elm_genlist_add(ad->nf);
+
+  elm_genlist_mode_set(genlist, ELM_LIST_COMPRESS);
+
+  elm_object_style_set(genlist, "focus_bg");
+
+  circle_genlist = eext_circle_object_genlist_add(genlist, ad->circle_surface);
+  eext_circle_object_genlist_scroller_policy_set(circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
+  eext_rotary_object_event_activated_set(circle_genlist, EINA_TRUE);
+
+  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
+
+  GList *entries = NULL;
+  db_select_all(&entries);
+
+  GList* entry = entries;
+  while (entry != NULL) {
+    if (entry->data != NULL) {
+      dlog_print(DLOG_ERROR, LOG_TAG, ((otp_info_s*) entry->data)->user);
+      elm_genlist_item_append(
+          genlist,      // genlist object
+          itc,          // item class
+          entry->data,  // data
+          NULL,
+          ELM_GENLIST_ITEM_NONE,
+          create_code_view_cb,
+          ad);
+    }
+    entry = g_list_next(entry);
+  }
+
+  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
+
+  elm_genlist_item_class_free(itc);
+  /*g_list_free_full(entries, free);*/
+
+  /* This button is set for devices which doesn't have H/W back key. */
+  Evas_Object *btn;
+  btn = elm_button_add(ad->nf);
+  elm_object_style_set(btn, "naviframe/end_btn/default");
+
+  Elm_Object_Item *nf_it;
+  nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, genlist, "empty");
+  elm_naviframe_item_pop_cb_set(nf_it, _naviframe_pop_cb, ad->win);
+}
+
+static void
+create_base_gui(appdata_s *ad)
+{
+  /*
+   * Widget Tree
+   * Window
+   *  - conform
+   *   - layout main
+   *    - naviframe */
+
+  /* Window */
+  ad->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
+  elm_win_conformant_set(ad->win, EINA_TRUE);
+  elm_win_autodel_set(ad->win, EINA_TRUE);
+
+  if (elm_win_wm_rotation_supported_get(ad->win)) {
+    int rots[4] = { 0, 90, 180, 270 };
+    elm_win_wm_rotation_available_rotations_set(ad->win, (const int *)(&rots), 4);
+  }
+
+  evas_object_smart_callback_add(ad->win, "delete,request", win_delete_request_cb, NULL);
+
+  /* Conformant */
+  ad->conform = elm_conformant_add(ad->win);
+  evas_object_size_hint_weight_set(ad->conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  elm_win_resize_object_add(ad->win, ad->conform);
+  evas_object_show(ad->conform);
+
+  // Eext Circle Surface Creation
+  ad->circle_surface = eext_circle_surface_conformant_add(ad->conform);
+
+  /* Indicator */
+  /* elm_win_indicator_mode_set(ad->win, ELM_WIN_INDICATOR_SHOW); */
+
+  /* Base Layout */
+  ad->layout = elm_layout_add(ad->conform);
+  evas_object_size_hint_weight_set(ad->layout, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  elm_layout_theme_set(ad->layout, "layout", "application", "default");
+  evas_object_show(ad->layout);
+
+  elm_object_content_set(ad->conform, ad->layout);
+
+  /* Naviframe */
+  ad->nf = elm_naviframe_add(ad->layout);
+  elm_object_part_content_set(ad->layout, "elm.swallow.content", ad->nf);
+  eext_object_event_callback_add(ad->nf, EEXT_CALLBACK_BACK, eext_naviframe_back_cb, NULL);
+  eext_object_event_callback_add(ad->nf, EEXT_CALLBACK_MORE, eext_naviframe_more_cb, NULL);
 }
 
 static bool app_create(void *data)
@@ -247,18 +370,15 @@ static bool app_create(void *data)
     Initialize UI resources and application's data
     If this function returns true, the main loop of application starts
     If this function returns false, the application is terminated */
-  state = data;
-
-  create_base_gui();
-  reload_database();
-
-  evas_object_show(state->name_label);
-  evas_object_show(state->code_label);
-
-  /* Schedule update */
-  state->timer = ecore_timer_add(1.0f, _timer_start_cb, NULL);
+  appdata_s *ad = data;
 
   initialize_sap();
+
+  create_base_gui(ad);
+  create_main_menu(ad);
+
+  /* Show window after base gui is set up */
+  evas_object_show(ad->win);
 
   return true;
 }
@@ -281,10 +401,6 @@ static void app_resume(void *data)
 static void app_terminate(void *data)
 {
   /* Release all resources. */
-  if (state->entries != NULL) {
-    g_list_free_full(state->entries, free);
-    state->entries = NULL;
-  }
 }
 
 static void ui_app_lang_changed(app_event_info_h event_info, void *user_data)
