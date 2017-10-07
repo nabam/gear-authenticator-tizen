@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <app_common.h>
 #include <dlog.h>
-#include "util/sqlite.h"
-#include "main.h"
+#include "database.h"
+#include "otp.h"
 
 #define DB_NAME        "otp.db"
 #define DB_TABLE_NAME  "entries"
@@ -15,9 +15,8 @@
 #define DB_COL_SECRET  "SECRET"
 #define DB_LOG_TAG     "SQLITE:"
 
-sqlite3 *otp_db;
 
-static int db_open()
+static int _db_open(sqlite3 **otp_db)
 {
   char *data_path = app_get_data_path();
   int size = strlen(data_path) + strlen(DB_NAME) + 1;
@@ -27,9 +26,9 @@ static int db_open()
   strcpy(path, data_path);
   strncat(path, DB_NAME, size);
 
-  int ret = sqlite3_open_v2( path , &otp_db, SQLITE_OPEN_CREATE|SQLITE_OPEN_READWRITE, NULL);
+  int ret = sqlite3_open_v2( path , otp_db, SQLITE_OPEN_CREATE|SQLITE_OPEN_READWRITE, NULL);
   if(ret != SQLITE_OK)
-    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" can't open database: %s", sqlite3_errmsg(otp_db));
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" can't open database: %s", sqlite3_errmsg(*otp_db));
 
   free(data_path);
   free(path);
@@ -38,7 +37,9 @@ static int db_open()
 
 int db_init()
 {
-  if (db_open() != SQLITE_OK)
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
     return SQLITE_ERROR;
 
   int ret;
@@ -64,14 +65,16 @@ int db_init()
   return SQLITE_OK;
 }
 
-static int insert_cb(void *unused, int count, char **data, char **columns){
+static int _insert_cb(void *unused, int count, char **data, char **columns){
   // TODO: refresh callback
   return 0;
 }
 
 int db_insert(otp_info_s *data)
 {
-  if (db_open() != SQLITE_OK)
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
     return SQLITE_ERROR;
 
   char *err_msg, *sql;
@@ -81,7 +84,7 @@ int db_insert(otp_info_s *data)
       "INSERT INTO "DB_TABLE_NAME" VALUES(%d, %Q, %d, %Q, NULL);",
       data->type, data->user, data->counter, data->secret);
 
-  ret = sqlite3_exec(otp_db, sql, insert_cb, 0, &err_msg);
+  ret = sqlite3_exec(otp_db, sql, _insert_cb, 0, &err_msg);
   if (ret != SQLITE_OK)
   {
     dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" insert query failed: %s", sqlite3_errmsg(otp_db));
@@ -98,7 +101,7 @@ int db_insert(otp_info_s *data)
   return SQLITE_OK;
 }
 
-static int select_all_cb(void *list, int count, char **data, char **columns){
+static int _select_cb(void *list, int count, char **data, char **columns){
   GList **head = (GList **) list;
   otp_info_s *temp = (otp_info_s*) malloc(sizeof(otp_info_s));
   memset(temp, 0, sizeof(otp_info_s));
@@ -120,14 +123,16 @@ static int select_all_cb(void *list, int count, char **data, char **columns){
 
 int db_select_all(GList** result)
 {
-  if(db_open() != SQLITE_OK)
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
     return SQLITE_ERROR;
 
   char *sql = "SELECT * FROM "DB_TABLE_NAME" ORDER BY ID DESC";
   int ret;
   char *err_msg;
 
-  ret = sqlite3_exec(otp_db, sql, select_all_cb, (void *) result, &err_msg);
+  ret = sqlite3_exec(otp_db, sql, _select_cb, (void *) result, &err_msg);
   if (ret != SQLITE_OK)
   {
     dlog_print(DLOG_DEBUG, LOG_TAG, DB_LOG_TAG" select query failed: %s", err_msg);
@@ -142,22 +147,24 @@ int db_select_all(GList** result)
   return SQLITE_OK;
 }
 
-static int delete_cb(void *list, int count, char **data, char **columns){
+static int _delete_cb(void *list, int count, char **data, char **columns){
   // TODO: refresh interface callback
   return 0;
 }
 
 int db_delete_id(int id)
 {
-  if(db_open() != SQLITE_OK)
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
     return SQLITE_ERROR;
 
-  char *sql = sqlite3_mprintf("DELETE from otp_info_s where QR_ID=%d;", id);
+  char *sql = sqlite3_mprintf("DELETE from "DB_TABLE_NAME" where "DB_COL_ID"=%d;", id);
 
   int counter = 0, ret = 0;
   char *err_msg;
 
-  ret = sqlite3_exec(otp_db, sql, delete_cb, &counter, &err_msg);
+  ret = sqlite3_exec(otp_db, sql, _delete_cb, &counter, &err_msg);
   if (ret != SQLITE_OK)
   {
     dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" delete query failed: %s", err_msg);

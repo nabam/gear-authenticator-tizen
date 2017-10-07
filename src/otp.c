@@ -3,10 +3,10 @@
 #include <app.h>
 #include <system_settings.h>
 #include <dlog.h>
-#include "main.h"
-#include "util/sap.h"
-#include "util/otp.h"
-#include "util/sqlite.h"
+#include "otp.h"
+#include "database.h"
+#include "code.h"
+#include "sap.h"
 
 #define NAME_LABEL "<font font_weight=Bold font_size=40><align=center> %s </align></font>"
 #define CODE_LABEL "<font font_weight=Regular font_size=75>%06d</font>"

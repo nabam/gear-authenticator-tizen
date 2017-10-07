@@ -5,7 +5,7 @@
 #include "util/base32.h"
 #include "util/hmac.h"
 #include "util/sha1.h"
-#include "util/otp.h"
+#include "code.h"
 
 static uint8_t *get_shared_secret(const char *secret_string, int *secretLen) {
   if (!secret_string) {

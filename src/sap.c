@@ -1,8 +1,8 @@
 #include <glib.h>
 #include <dlog.h>
 #include <sap_client/sap.h>
-#include "util/sap.h"
-#include "main.h"
+#include "sap.h"
+#include "otp.h"
 
 #define ACC_ASPID "/nabam/otp"
 #define ACC_CHANNELID 104
