@@ -7,7 +7,7 @@
 #include "util/sha1.h"
 #include "code.h"
 
-static uint8_t *get_shared_secret(const char *secret_string, int *secretLen) {
+static uint8_t *_get_shared_secret(const char *secret_string, int *secretLen) {
   if (!secret_string) {
     return NULL;
   }
@@ -33,7 +33,7 @@ static uint8_t *get_shared_secret(const char *secret_string, int *secretLen) {
   return secret;
 }
 
-static int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
+static int _compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
   uint8_t val[8];
   for (int i = 8; i--; value >>= 8) {
     val[i] = value;
@@ -57,10 +57,10 @@ int totp_get_code(const char *secret, int skew, int *expires) {
   const int tm = time(NULL);
   int len;
   *expires = TOTP_STEP_SIZE - tm % TOTP_STEP_SIZE;
-  return compute_code(get_shared_secret(secret, &len), len, (tm / TOTP_STEP_SIZE) + skew);
+  return _compute_code(_get_shared_secret(secret, &len), len, (tm / TOTP_STEP_SIZE) + skew);
 }
 
 int hotp_get_code(const char *secret, int counter) {
   int len;
-  return compute_code(get_shared_secret(secret, &len), len, counter);
+  return _compute_code(_get_shared_secret(secret, &len), len, counter);
 }

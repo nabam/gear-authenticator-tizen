@@ -156,7 +156,7 @@ end:
   return;
 }
 
-static void win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
+static void _win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
 {
   ui_app_exit();
 }
@@ -229,7 +229,7 @@ static void _create_code_view(appdata_s *ad, otp_info_s *entry)
   elm_naviframe_item_pop_cb_set(nf_it, _code_view_pop_cb, ad);
 }
 
-static char * _gl_text_get(void *data, Evas_Object *obj, const char *part)
+static char * _gl_text_get_cb(void *data, Evas_Object *obj, const char *part)
 {
   if (data == NULL) return NULL;
 
@@ -255,19 +255,19 @@ static char * _gl_text_get(void *data, Evas_Object *obj, const char *part)
   }
 }
 
-static Eina_Bool _naviframe_pop_cb(void *data, Elm_Object_Item *it)
+static Eina_Bool _main_menu_pop_cb(void *data, Elm_Object_Item *it)
 {
   ui_app_exit();
   return EINA_FALSE;
 }
 
-static void _gl_del(void *data, Evas_Object *obj)
+static void _gl_del_cb(void *data, Evas_Object *obj)
 {
 	otp_info_s *payload = (otp_info_s *)data;
 	if (payload) free(payload);
 }
 
-static void _gl_sel(void *data, Evas_Object *obj, void *event_info)
+static void _gl_sel_cb(void *data, Evas_Object *obj, void *event_info)
 {
 	Elm_Object_Item *it = (Elm_Object_Item *)event_info;
 	elm_genlist_item_selected_set(it, EINA_FALSE);
@@ -277,7 +277,7 @@ static void _gl_sel(void *data, Evas_Object *obj, void *event_info)
 	return;
 }
 
-static void _gl_longpressed(void *data, Evas_Object *obj, void *event_info)
+static void _gl_longpressed_cb(void *data, Evas_Object *obj, void *event_info)
 {
 	Elm_Object_Item *it = (Elm_Object_Item *)event_info;
 	elm_genlist_item_selected_set(it, EINA_FALSE);
@@ -296,8 +296,8 @@ static void _create_main_menu(void *data) {
   Elm_Genlist_Item_Class *itc = elm_genlist_item_class_new();
 
   itc->item_style = "2text";
-  itc->func.text_get = _gl_text_get;
-	itc->func.del = _gl_del;
+  itc->func.text_get = _gl_text_get_cb;
+	itc->func.del = _gl_del_cb;
 
   ptc->item_style = "padding";
 
@@ -328,13 +328,13 @@ static void _create_main_menu(void *data) {
           payload,      // data
           NULL,
           ELM_GENLIST_ITEM_NONE,
-          _gl_sel,
+          _gl_sel_cb,
           ad);
     }
     entry = g_list_next(entry);
   }
 
-	evas_object_smart_callback_add(genlist, "longpressed", _gl_longpressed, NULL);
+	evas_object_smart_callback_add(genlist, "longpressed", _gl_longpressed_cb, NULL);
 
   elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
 
@@ -347,7 +347,7 @@ static void _create_main_menu(void *data) {
   elm_object_style_set(btn, "naviframe/end_btn/default");
 
   Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, genlist, "empty");
-  elm_naviframe_item_pop_cb_set(nf_it, _naviframe_pop_cb, ad->win);
+  elm_naviframe_item_pop_cb_set(nf_it, _main_menu_pop_cb, ad->win);
 }
 
 static void
@@ -370,7 +370,7 @@ _create_base_gui(appdata_s *ad)
     elm_win_wm_rotation_available_rotations_set(ad->win, (const int *)(&rots), 4);
   }
 
-  evas_object_smart_callback_add(ad->win, "delete,request", win_delete_request_cb, NULL);
+  evas_object_smart_callback_add(ad->win, "delete,request", _win_delete_request_cb, NULL);
 
   /* Conformant */
   ad->conform = elm_conformant_add(ad->win);
