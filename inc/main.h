@@ -26,14 +26,6 @@ typedef struct otp_info {
   int  id;
 } otp_info_s;
 
-typedef struct appdata {
-  Evas_Object         *win;
-  Evas_Object         *conform;
-  Evas_Object         *layout;
-  Evas_Object         *nf;
-  Eext_Circle_Surface *circle_surface;
-} appdata_s;
-
 typedef struct code_view_data {
   int                 seconds;
   Evas_Object         *name_label;
@@ -43,6 +35,15 @@ typedef struct code_view_data {
   Ecore_Timer         *timer;
   otp_info_s          *entry;
 } code_view_data_s;
+
+typedef struct appdata {
+  Evas_Object         *win;
+  Evas_Object         *conform;
+  Evas_Object         *layout;
+  Evas_Object         *nf;
+  Eext_Circle_Surface *circle_surface;
+  code_view_data_s    *current_cvd;
+} appdata_s;
 
 void add_entry(char *);
 
