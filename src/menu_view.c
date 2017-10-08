@@ -11,9 +11,9 @@ static char * menu_text_get_cb(void *data, Evas_Object *obj, const char *part)
   char issuer[255];
   otp_info_s *entry = (otp_info_s *) data;
 
-  get_otp_account(entry->user, account);
+  get_otp_account(entry->label, account);
 
-  if (get_otp_issuer(entry->user, issuer)) {
+  if (get_otp_issuer(entry->label, issuer)) {
     if (!strcmp(part, "elm.text.1")) {
       return strdup(account);
     } else {
@@ -89,15 +89,29 @@ void menu_create(void *data) {
   GList *entries = NULL;
   db_select_all(&entries);
 
+  if (entries == NULL) {
+    Evas_Object *popup = elm_popup_add(ad->nf);
+    elm_object_style_set(popup, "circle");
+    evas_object_size_hint_weight_set(popup, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+
+    Evas_Object *layout = elm_layout_add(popup);
+    elm_layout_theme_set(layout, "layout", "popup", "content/circle");
+
+    elm_object_part_text_set(layout, "elm.text", "Add OTP entries with a companion app on your phone");
+    elm_object_content_set(popup, layout);
+
+    evas_object_show(popup);
+  }
+
   GList* entry = entries;
   while (entry != NULL) {
     if (entry->data != NULL) {
       otp_info_s *payload = malloc(sizeof(otp_info_s));
       memcpy(payload, entry->data, sizeof(otp_info_s));
-      dlog_print(DLOG_ERROR, LOG_TAG, ((otp_info_s*) entry->data)->user);
+      dlog_print(DLOG_ERROR, LOG_TAG, ((otp_info_s*) entry->data)->label);
 
       Elm_Genlist_Item_Class *class;
-      if (strchr(payload->user, ':')) {
+      if (strchr(payload->label, ':')) {
         class = style_2text;
       } else {
         class = style_1text;

@@ -20,7 +20,8 @@ typedef enum otp_type {
 
 typedef struct otp_info {
   otp_type_e type;
-  char user[255];
+  char label[255];
+  char alias[255];
   char secret[255];
   int  counter;
   int  id;

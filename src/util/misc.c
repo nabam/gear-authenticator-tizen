@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include "otp.h"
 
-int get_otp_issuer(char* item, char *res) {
-  snprintf(res, 255, "%s", item);
+int get_otp_issuer(char* label, char *res) {
+  snprintf(res, 255, "%s", label);
   char* p = strchr(res, ':');
 
   if (p != NULL) {
@@ -13,10 +13,10 @@ int get_otp_issuer(char* item, char *res) {
   return false;
 }
 
-void get_otp_account(char* item, char *res) {
-  char* p = strchr(item, ':');
+void get_otp_account(char* label, char *res) {
+  char* p = strchr(label, ':');
   if (p == NULL) {
-    p = item;
+    p = label;
   } else {
     ++p;
   }

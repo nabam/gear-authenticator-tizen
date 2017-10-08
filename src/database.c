@@ -10,7 +10,7 @@
 #define DB_TABLE_NAME  "entries"
 #define DB_COL_ID      "ID"
 #define DB_COL_TYPE    "TYPE"
-#define DB_COL_USER    "USER"
+#define DB_COL_LABEL   "LABEL"
 #define DB_COL_COUNTER "COUNTER"
 #define DB_COL_SECRET  "SECRET"
 #define DB_LOG_TAG     "SQLITE:"
@@ -46,7 +46,7 @@ int db_init()
   char *err_msg;
   char *sql = "CREATE TABLE IF NOT EXISTS "DB_TABLE_NAME" \
                ("DB_COL_TYPE"    INTEGER NOT NULL, \
-                "DB_COL_USER"    TEXT    NOT NULL, \
+                "DB_COL_LABEL"    TEXT    NOT NULL, \
                 "DB_COL_COUNTER" INTEGET NOT NULL, \
                 "DB_COL_SECRET"  TEXT    NOT NULL, \
                 "DB_COL_ID"      INTEGER PRIMARY KEY AUTOINCREMENT);";
@@ -82,7 +82,7 @@ int db_insert(otp_info_s *data)
 
   sql = sqlite3_mprintf(
       "INSERT INTO "DB_TABLE_NAME" VALUES(%d, %Q, %d, %Q, NULL);",
-      data->type, data->user, data->counter, data->secret);
+      data->type, data->label, data->counter, data->secret);
 
   ret = sqlite3_exec(otp_db, sql, _insert_cb, 0, &err_msg);
   if (ret != SQLITE_OK)
@@ -110,11 +110,11 @@ static int _select_cb(void *list, int count, char **data, char **columns){
     dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" can't allocate memory for otp_info_s");
     return SQLITE_ERROR;
   } else {
-            temp->type    = atoi(data[0]);
-    strncpy(temp->user,          data[1], 254);
+            temp->type   = atoi(data[0]);
+    strncpy(temp->label,        data[1], 254);
            temp->counter = atoi(data[2]);
-    strncpy(temp->secret,        data[3], 254);
-            temp->id      = atoi(data[4]);
+    strncpy(temp->secret,       data[3], 254);
+            temp->id     = atoi(data[4]);
   }
 
   *head = g_list_append(*head, temp);

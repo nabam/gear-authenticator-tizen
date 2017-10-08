@@ -61,13 +61,13 @@ void add_entry(char *data) {
           else if (strcmp(type, "HOTP") == 0) result.type = HOTP;
         } else if (strcmp(key, "counter") == 0) {
           result.counter = json_node_get_int(value);
-        } else if (strcmp(key, "user") == 0) {
-          const gchar *user = json_node_get_string(value);
-          if (user == NULL) {
+        } else if (strcmp(key, "label") == 0) {
+          const gchar *label = json_node_get_string(value);
+          if (label == NULL) {
             dlog_print(DLOG_ERROR, LOG_TAG, "add_entry() wrong json object");
             goto free;
           }
-          strncpy(result.user, user, 254);
+          strncpy(result.label, label, 254);
         } else if (strcmp(key, "secret") == 0) {
           const gchar *secret = json_node_get_string(value);
           if (secret == NULL) {
@@ -89,7 +89,7 @@ void add_entry(char *data) {
     values_c = g_list_next(values_c);
   }
 
-  if (result.user[0] != '\0' && result.secret[0] != '\0') {
+  if (result.label[0] != '\0' && result.secret[0] != '\0') {
     dlog_print(DLOG_DEBUG, LOG_TAG, "add_entry() adding new entry to database");
     db_insert(&result);
   } else {
@@ -196,7 +196,7 @@ static void app_terminate(void *data)
   /* Release all resources. */
 }
 
-static void ui_app_lang_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_lang_changed(app_event_info_h event_info, void *label_data)
 {
   /*APP_EVENT_LANGUAGE_CHANGED*/
   char *locale = NULL;
@@ -206,23 +206,23 @@ static void ui_app_lang_changed(app_event_info_h event_info, void *user_data)
   return;
 }
 
-static void ui_app_orient_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_orient_changed(app_event_info_h event_info, void *label_data)
 {
   /*APP_EVENT_DEVICE_ORIENTATION_CHANGED*/
   return;
 }
 
-static void ui_app_region_changed(app_event_info_h event_info, void *user_data)
+static void ui_app_region_changed(app_event_info_h event_info, void *label_data)
 {
   /*APP_EVENT_REGION_FORMAT_CHANGED*/
 }
 
-static void ui_app_low_battery(app_event_info_h event_info, void *user_data)
+static void ui_app_low_battery(app_event_info_h event_info, void *label_data)
 {
   /*APP_EVENT_LOW_BATTERY*/
 }
 
-static void ui_app_low_memory(app_event_info_h event_info, void *user_data)
+static void ui_app_low_memory(app_event_info_h event_info, void *label_data)
 {
   /*APP_EVENT_LOW_MEMORY*/
 }

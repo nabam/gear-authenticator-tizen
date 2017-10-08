@@ -9,7 +9,7 @@
 
 #define TOTP_STEP_SIZE 30
 
-#define NAME_LABEL "<font font_weight=Regular font_size=35><align=center>%s</align></font>"
+#define NAME_LABEL "<font font_weight=Regular font_size=30><align=center>%s</align></font>"
 #define CODE_LABEL "<font font_weight=Regular font_size=75>%06d</font>"
 
 static uint8_t *_get_shared_secret(const char *secret_string, int *secretLen) {
@@ -159,8 +159,8 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
   elm_label_slide_duration_set(cvd->name_label, 2);
 
   char label[255], issuer[255], account[255];
-  get_otp_account(cvd->entry->user, account);
-  if (get_otp_issuer(cvd->entry->user, issuer)) {
+  get_otp_account(cvd->entry->label, account);
+  if (get_otp_issuer(cvd->entry->label, issuer)) {
     char res[255];
     snprintf(res, 255, "%s<br/>%s", issuer, account);
     snprintf(label, 255, NAME_LABEL, res);
