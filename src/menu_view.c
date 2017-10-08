@@ -12,20 +12,15 @@ static char * menu_text_get_cb(void *data, Evas_Object *obj, const char *part)
   otp_info_s *entry = (otp_info_s *) data;
 
   get_otp_account(entry->user, account);
-  get_otp_issuer(entry->user, issuer);
 
-  if (issuer[0] != '\0') {
+  if (get_otp_issuer(entry->user, issuer)) {
     if (!strcmp(part, "elm.text.1")) {
       return strdup(account);
     } else {
       return strdup(issuer);
     }
   } else {
-    if (!strcmp(part, "elm.text.1")) {
-      return NULL;
-    } else {
-      return strdup(account);
-    }
+    return strdup(account);
   }
 }
 
@@ -66,11 +61,16 @@ void menu_create(void *data) {
   Evas_Object *circle_genlist = NULL;
 
   Elm_Genlist_Item_Class *ptc = elm_genlist_item_class_new();
-  Elm_Genlist_Item_Class *itc = elm_genlist_item_class_new();
+  Elm_Genlist_Item_Class *style_1text = elm_genlist_item_class_new();
+  Elm_Genlist_Item_Class *style_2text = elm_genlist_item_class_new();
 
-  itc->item_style = "2text";
-  itc->func.text_get = menu_text_get_cb;
-	itc->func.del = menu_del_cb;
+  style_1text->item_style = "1text";
+  style_1text->func.text_get = menu_text_get_cb;
+	style_1text->func.del = menu_del_cb;
+
+  style_2text->item_style = "2text";
+  style_2text->func.text_get = menu_text_get_cb;
+	style_2text->func.del = menu_del_cb;
 
   ptc->item_style = "padding";
 
@@ -95,9 +95,17 @@ void menu_create(void *data) {
       otp_info_s *payload = malloc(sizeof(otp_info_s));
       memcpy(payload, entry->data, sizeof(otp_info_s));
       dlog_print(DLOG_ERROR, LOG_TAG, ((otp_info_s*) entry->data)->user);
+
+      Elm_Genlist_Item_Class *class;
+      if (strchr(payload->user, ':')) {
+        class = style_2text;
+      } else {
+        class = style_1text;
+      }
+
       elm_genlist_item_append(
           genlist,      // genlist object
-          itc,          // item class
+          class,          // item class
           payload,      // data
           NULL,
           ELM_GENLIST_ITEM_NONE,
@@ -111,7 +119,7 @@ void menu_create(void *data) {
 
   elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
 
-  elm_genlist_item_class_free(itc);
+  elm_genlist_item_class_free(style_2text);
   g_list_free_full(entries, free);
 
   /* This button is set for devices which doesn't have H/W back key. */

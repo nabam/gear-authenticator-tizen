@@ -147,9 +147,65 @@ int db_select_all(GList** result)
   return SQLITE_OK;
 }
 
+int db_select_id(GList** result, int id)
+{
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
+    return SQLITE_ERROR;
+
+  char *sql = sqlite3_mprintf("SELECT * FROM "DB_TABLE_NAME" where "DB_COL_ID"=%d;", id);
+
+  int ret;
+  char *err_msg;
+
+  ret = sqlite3_exec(otp_db, sql, _select_cb, (void *) result, &err_msg);
+  if (ret != SQLITE_OK)
+  {
+    dlog_print(DLOG_DEBUG, LOG_TAG, DB_LOG_TAG" select query failed: %s", err_msg);
+    sqlite3_free(err_msg);
+    sqlite3_close(otp_db);
+
+    return SQLITE_ERROR;
+  }
+
+  sqlite3_close(otp_db);
+
+  return SQLITE_OK;
+}
+
 static int _delete_cb(void *list, int count, char **data, char **columns){
   // TODO: refresh interface callback
   return 0;
+}
+
+int db_inc_counter(int id)
+{
+  sqlite3 *otp_db;
+
+  if(_db_open(&otp_db) != SQLITE_OK)
+    return SQLITE_ERROR;
+
+  char *sql = sqlite3_mprintf("UPDATE "DB_TABLE_NAME" SET "DB_COL_COUNTER" = "DB_COL_COUNTER" + 1 where "DB_COL_ID"=%d;", id);
+
+  int counter = 0, ret = 0;
+  char *err_msg;
+
+  ret = sqlite3_exec(otp_db, sql, _delete_cb, &counter, &err_msg);
+  if (ret != SQLITE_OK)
+  {
+    dlog_print(DLOG_ERROR, LOG_TAG, DB_LOG_TAG" update query failed: %s", err_msg);
+    sqlite3_free(sql);
+    sqlite3_free(err_msg);
+    sqlite3_close(otp_db);
+
+    return SQLITE_ERROR;
+  }
+
+  sqlite3_free(sql);
+  sqlite3_close(otp_db);
+
+  return SQLITE_OK;
 }
 
 int db_delete_id(int id)

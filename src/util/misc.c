@@ -15,9 +15,13 @@ int get_otp_issuer(char* item, char *res) {
 
 void get_otp_account(char* item, char *res) {
   char* p = strchr(item, ':');
-  if (p == NULL) p = item;
+  if (p == NULL) {
+    p = item;
+  } else {
+    ++p;
+  }
 
-  snprintf(res, 255, "%s", ++p);
+  snprintf(res, 255, "%s", p);
 }
 
 

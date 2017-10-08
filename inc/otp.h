@@ -30,7 +30,7 @@ typedef struct code_view_data {
   int                 seconds;
   Evas_Object         *name_label;
   Evas_Object         *code_label;
-  Evas_Object         *box;
+  Evas_Object         *layout;
   Evas_Object         *progressbar;
   Ecore_Timer         *timer;
   otp_info_s          *entry;
