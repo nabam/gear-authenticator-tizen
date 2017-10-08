@@ -1,60 +1,10 @@
-#include <json-glib.h>
-#include <system_info.h>
 #include <app.h>
 #include <system_settings.h>
 #include <dlog.h>
+#include <json-glib.h>
 #include "otp.h"
 #include "database.h"
-#include "code.h"
 #include "sap.h"
-
-#define NAME_LABEL "<font font_weight=Bold font_size=40><align=center> %s </align></font>"
-#define CODE_LABEL "<font font_weight=Regular font_size=75>%06d</font>"
-
-static int _get_otp_issuer(char* item, char *res) {
-  snprintf(res, 255, "%s", item);
-  char* p = strchr(res, ':');
-
-  if (p != NULL) {
-    *p = '\0';
-    return true;
-  }
-
-  return false;
-}
-
-static void _get_otp_account(char* item, char *res) {
-  char* p = strchr(item, ':');
-  if (p == NULL) p = item;
-
-  snprintf(res, 255, "%s", ++p);
-}
-
-static void _get_code(code_view_data_s *cvd) {
-  int expires = 0;
-  char code[255];
-  otp_info_s *entry = (otp_info_s *) (cvd->entry);
-
-  if (entry != NULL) {
-    snprintf(code, 255, CODE_LABEL, totp_get_code(entry->secret, 0, &expires));
-    elm_object_text_set(cvd->code_label, code);
-  }
-
-  cvd->seconds = expires;
-}
-
-static Eina_Bool _update_code_timer_cb(void *data) {
-  code_view_data_s *cvd = data;
-
-  if (--cvd->seconds < 1) {
-    _get_code(cvd);
-  }
-
-  eext_circle_object_value_set(cvd->progressbar, cvd->seconds);
-
-  return ECORE_CALLBACK_RENEW;
-}
-
 
 void add_entry(char *data) {
   JsonParser *parser = json_parser_new();
@@ -156,202 +106,12 @@ end:
   return;
 }
 
-static void _win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
+static void win_delete_request_cb(void *data, Evas_Object *obj, void *event_info)
 {
   ui_app_exit();
 }
 
-static Eina_Bool _code_view_pop_cb(void *data, Elm_Object_Item *it)
-{
-  appdata_s *ad = (appdata_s *) data;
-  code_view_data_s *cvd = ad->current_cvd;
-  if (cvd) {
-    ad->current_cvd = NULL;
-    if (cvd->timer) ecore_timer_del(cvd->timer);
-    evas_object_hide(cvd->progressbar);
-    free(cvd);
-  }
-
-  return EINA_TRUE;
-}
-
-static void _create_code_view(appdata_s *ad, otp_info_s *entry)
-{
-  code_view_data_s *cvd = calloc(1, sizeof(code_view_data_s));
-  cvd->entry = entry;
-  ad->current_cvd = cvd;
-
-  /* Box */
-  cvd->box = elm_box_add(ad->nf);
-  elm_box_align_set(cvd->box, EVAS_HINT_FILL, 0.5);
-  evas_object_size_hint_weight_set(cvd->box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  evas_object_show(cvd->box);
-
-  /* Name label */
-  cvd->name_label = elm_label_add(cvd->box);
-  evas_object_size_hint_align_set(cvd->name_label, 0.5, 0.5);
-  evas_object_size_hint_weight_set(cvd->name_label, EVAS_HINT_EXPAND, 0);
-
-  char label[255], issuer[255], account[255];
-  _get_otp_account(cvd->entry->user, account);
-  if (_get_otp_issuer(cvd->entry->user, issuer)) {
-    char res[255];
-    snprintf(res, 255, "%s <br/> %s", issuer, account);
-    snprintf(label, 255, NAME_LABEL, res);
-  } else {
-    snprintf(label, 255, NAME_LABEL, account);
-  }
-
-  elm_object_text_set(cvd->name_label, label);
-  evas_object_show(cvd->name_label);
-  elm_box_pack_end(cvd->box, cvd->name_label);
-
-  /* Code label */
-  cvd->code_label = elm_label_add(cvd->box);
-  evas_object_size_hint_align_set(cvd->code_label, 0.5, 0.5);
-  evas_object_size_hint_weight_set(cvd->code_label, EVAS_HINT_EXPAND, 0);
-
-  _get_code(cvd);
-  evas_object_show(cvd->code_label);
-  elm_box_pack_end(cvd->box, cvd->code_label);
-
-  /* Progress */
-  cvd->progressbar = eext_circle_object_progressbar_add(cvd->box, ad->circle_surface);
-  eext_circle_object_value_min_max_set(cvd->progressbar, 0, TOTP_STEP_SIZE);
-  eext_circle_object_value_set(cvd->progressbar, cvd->seconds);
-
-  evas_object_show(cvd->progressbar);
-
-  /* Schedule update */
-  cvd->timer = ecore_timer_add(1.0f, _update_code_timer_cb, cvd);
-
-  Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, NULL, NULL, cvd->box, "empty");
-  elm_naviframe_item_pop_cb_set(nf_it, _code_view_pop_cb, ad);
-}
-
-static char * _gl_text_get_cb(void *data, Evas_Object *obj, const char *part)
-{
-  if (data == NULL) return NULL;
-
-  char account[255];
-  char issuer[255];
-  otp_info_s *entry = (otp_info_s *) data;
-
-  _get_otp_account(entry->user, account);
-  _get_otp_issuer(entry->user, issuer);
-
-  if (issuer[0] != '\0') {
-    if (!strcmp(part, "elm.text.1")) {
-      return strdup(account);
-    } else {
-      return strdup(issuer);
-    }
-  } else {
-    if (!strcmp(part, "elm.text.1")) {
-      return NULL;
-    } else {
-      return strdup(account);
-    }
-  }
-}
-
-static Eina_Bool _main_menu_pop_cb(void *data, Elm_Object_Item *it)
-{
-  ui_app_exit();
-  return EINA_FALSE;
-}
-
-static void _gl_del_cb(void *data, Evas_Object *obj)
-{
-	otp_info_s *payload = (otp_info_s *)data;
-	if (payload) free(payload);
-}
-
-static void _gl_sel_cb(void *data, Evas_Object *obj, void *event_info)
-{
-	Elm_Object_Item *it = (Elm_Object_Item *)event_info;
-	elm_genlist_item_selected_set(it, EINA_FALSE);
-
-  _create_code_view(data, elm_object_item_data_get(it));
-
-	return;
-}
-
-static void _gl_longpressed_cb(void *data, Evas_Object *obj, void *event_info)
-{
-	Elm_Object_Item *it = (Elm_Object_Item *)event_info;
-	elm_genlist_item_selected_set(it, EINA_FALSE);
-
-
-	return;
-}
-
-
-static void _create_main_menu(void *data) {
-  appdata_s *ad = (appdata_s *)data;
-  Evas_Object *genlist = NULL;
-  Evas_Object *circle_genlist = NULL;
-
-  Elm_Genlist_Item_Class *ptc = elm_genlist_item_class_new();
-  Elm_Genlist_Item_Class *itc = elm_genlist_item_class_new();
-
-  itc->item_style = "2text";
-  itc->func.text_get = _gl_text_get_cb;
-	itc->func.del = _gl_del_cb;
-
-  ptc->item_style = "padding";
-
-  genlist = elm_genlist_add(ad->nf);
-
-  elm_genlist_mode_set(genlist, ELM_LIST_COMPRESS);
-
-  elm_object_style_set(genlist, "focus_bg");
-
-  circle_genlist = eext_circle_object_genlist_add(genlist, ad->circle_surface);
-  eext_circle_object_genlist_scroller_policy_set(circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
-  eext_rotary_object_event_activated_set(circle_genlist, EINA_TRUE);
-
-  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
-
-  GList *entries = NULL;
-  db_select_all(&entries);
-
-  GList* entry = entries;
-  while (entry != NULL) {
-    if (entry->data != NULL) {
-      otp_info_s *payload = malloc(sizeof(otp_info_s));
-      memcpy(payload, entry->data, sizeof(otp_info_s));
-      dlog_print(DLOG_ERROR, LOG_TAG, ((otp_info_s*) entry->data)->user);
-      elm_genlist_item_append(
-          genlist,      // genlist object
-          itc,          // item class
-          payload,      // data
-          NULL,
-          ELM_GENLIST_ITEM_NONE,
-          _gl_sel_cb,
-          ad);
-    }
-    entry = g_list_next(entry);
-  }
-
-	evas_object_smart_callback_add(genlist, "longpressed", _gl_longpressed_cb, NULL);
-
-  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
-
-  elm_genlist_item_class_free(itc);
-  g_list_free_full(entries, free);
-
-  /* This button is set for devices which doesn't have H/W back key. */
-  Evas_Object *btn;
-  btn = elm_button_add(ad->nf);
-  elm_object_style_set(btn, "naviframe/end_btn/default");
-
-  Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, genlist, "empty");
-  elm_naviframe_item_pop_cb_set(nf_it, _main_menu_pop_cb, ad->win);
-}
-
-static void
-_create_base_gui(appdata_s *ad)
+static void base_ui_create(appdata_s *ad)
 {
   /*
    * Widget Tree
@@ -370,7 +130,7 @@ _create_base_gui(appdata_s *ad)
     elm_win_wm_rotation_available_rotations_set(ad->win, (const int *)(&rots), 4);
   }
 
-  evas_object_smart_callback_add(ad->win, "delete,request", _win_delete_request_cb, NULL);
+  evas_object_smart_callback_add(ad->win, "delete,request", win_delete_request_cb, NULL);
 
   /* Conformant */
   ad->conform = elm_conformant_add(ad->win);
@@ -406,8 +166,8 @@ static bool app_create(void *data)
 
   initialize_sap();
 
-  _create_base_gui(ad);
-  _create_main_menu(ad);
+  base_ui_create(ad);
+  menu_create(ad);
 
   /* Show window after base gui is set up */
   evas_object_show(ad->win);
@@ -428,11 +188,7 @@ static void app_pause(void *data)
 static void app_resume(void *data)
 {
   appdata_s *ad = (appdata_s *) data;
-  /* Take necessary actions when application becomes visible. */
-  if (ad->current_cvd != NULL) {
-    _get_code(ad->current_cvd);
-    eext_circle_object_value_set(ad->current_cvd->progressbar, ad->current_cvd->seconds);
-  }
+  code_view_resume(ad->current_cvd);
 }
 
 static void app_terminate(void *data)

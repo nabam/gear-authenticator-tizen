@@ -45,6 +45,11 @@ typedef struct appdata {
   code_view_data_s    *current_cvd;
 } appdata_s;
 
+void get_otp_account(char* item, char *res);
+int get_otp_issuer(char* item, char *res);
 void add_entry(char *);
+void code_view_create(appdata_s *ad, otp_info_s *entry);
+void code_view_resume(code_view_data_s *cvd);
+void menu_create(void *data);
 
 #endif /* __OTP_H__ */
