@@ -134,15 +134,15 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
   cvd->entry = entry;
   ad->current_cvd = cvd;
 
-  cvd->layout =  elm_layout_add(ad->nf);
-	elm_layout_theme_set(cvd->layout, "layout", "bottom_button", "default");
-	evas_object_show(cvd->layout);
+  Evas_Object *layout = elm_layout_add(ad->nf);
+	elm_layout_theme_set(layout, "layout", "bottom_button", "default");
+	evas_object_show(layout);
 
   /* Box */
-  Evas_Object *box = elm_box_add(cvd->layout);
+  Evas_Object *box = elm_box_add(layout);
   evas_object_size_hint_weight_set(box, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
   evas_object_show(box);
-	elm_object_part_content_set(cvd->layout, "elm.swallow.content", box);
+	elm_object_part_content_set(layout, "elm.swallow.content", box);
 
   /* Name label */
   Evas_Object *name_label = elm_label_add(box);
@@ -186,7 +186,7 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
 
   if (cvd->entry->type == TOTP) {
     /* Progress */
-    cvd->progressbar = eext_circle_object_progressbar_add(cvd->layout, ad->circle_surface);
+    cvd->progressbar = eext_circle_object_progressbar_add(layout, ad->circle_surface);
     eext_circle_object_value_min_max_set(cvd->progressbar, 0, TOTP_STEP_SIZE);
     eext_circle_object_value_set(cvd->progressbar, cvd->seconds);
 
@@ -195,15 +195,15 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
     /* Schedule update */
     cvd->timer = ecore_timer_add(1.0f, refresh_view_totp_cb, cvd);
   } else {
-    Evas_Object *button = elm_button_add(cvd->layout);
+    Evas_Object *button = elm_button_add(layout);
     elm_object_text_set(button, "renew");
     elm_object_style_set(button, "bottom");
     evas_object_smart_callback_add(button, "clicked", renew_button_cb, cvd);
     evas_object_show(button);
-    elm_object_part_content_set(cvd->layout, "elm.swallow.button", button);
+    elm_object_part_content_set(layout, "elm.swallow.button", button);
   }
 
-  Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, NULL, NULL, cvd->layout, "empty");
+  Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, NULL, NULL, layout, "empty");
   elm_naviframe_item_pop_cb_set(nf_it, code_view_pop_cb, ad);
 }
 

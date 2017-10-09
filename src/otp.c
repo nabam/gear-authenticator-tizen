@@ -121,6 +121,8 @@ static void base_ui_create(appdata_s *ad)
    *    - naviframe */
 
   /* Window */
+  Evas_Object *conform, *layout;
+
   ad->win = elm_win_util_standard_add(PACKAGE, PACKAGE);
   elm_win_conformant_set(ad->win, EINA_TRUE);
   elm_win_autodel_set(ad->win, EINA_TRUE);
@@ -133,25 +135,25 @@ static void base_ui_create(appdata_s *ad)
   evas_object_smart_callback_add(ad->win, "delete,request", win_delete_request_cb, NULL);
 
   /* Conformant */
-  ad->conform = elm_conformant_add(ad->win);
-  evas_object_size_hint_weight_set(ad->conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  elm_win_resize_object_add(ad->win, ad->conform);
-  evas_object_show(ad->conform);
+  conform = elm_conformant_add(ad->win);
+  evas_object_size_hint_weight_set(conform, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  elm_win_resize_object_add(ad->win, conform);
+  evas_object_show(conform);
 
   // Eext Circle Surface Creation
-  ad->circle_surface = eext_circle_surface_conformant_add(ad->conform);
+  ad->circle_surface = eext_circle_surface_conformant_add(conform);
 
   /* Base Layout */
-  ad->layout = elm_layout_add(ad->conform);
-  evas_object_size_hint_weight_set(ad->layout, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
-  elm_layout_theme_set(ad->layout, "layout", "application", "default");
-  evas_object_show(ad->layout);
+  layout = elm_layout_add(conform);
+  evas_object_size_hint_weight_set(layout, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
+  elm_layout_theme_set(layout, "layout", "application", "default");
+  evas_object_show(layout);
 
-  elm_object_content_set(ad->conform, ad->layout);
+  elm_object_content_set(conform, layout);
 
   /* Naviframe */
-  ad->nf = elm_naviframe_add(ad->layout);
-  elm_object_part_content_set(ad->layout, "elm.swallow.content", ad->nf);
+  ad->nf = elm_naviframe_add(layout);
+  elm_object_part_content_set(layout, "elm.swallow.content", ad->nf);
   eext_object_event_callback_add(ad->nf, EEXT_CALLBACK_BACK, eext_naviframe_back_cb, NULL);
   eext_object_event_callback_add(ad->nf, EEXT_CALLBACK_MORE, eext_naviframe_more_cb, NULL);
 }
