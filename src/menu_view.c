@@ -55,14 +55,14 @@ static void menu_longpressed_cb(void *data, Evas_Object *obj, void *event_info)
 	return;
 }
 
-void menu_create(void *data) {
-  appdata_s *ad = (appdata_s *)data;
-  Evas_Object *genlist = NULL;
-  Evas_Object *circle_genlist = NULL;
-
+void menu_items_create(appdata_s *ad) {
+  GList *entries = NULL, *entry = NULL;
+  Evas_Object *popup = NULL, *layout = NULL;
   Elm_Genlist_Item_Class *ptc = elm_genlist_item_class_new();
   Elm_Genlist_Item_Class *style_1text = elm_genlist_item_class_new();
   Elm_Genlist_Item_Class *style_2text = elm_genlist_item_class_new();
+
+  ptc->item_style = "padding";
 
   style_1text->item_style = "1text";
   style_1text->func.text_get = menu_text_get_cb;
@@ -72,38 +72,27 @@ void menu_create(void *data) {
   style_2text->func.text_get = menu_text_get_cb;
 	style_2text->func.del = menu_del_cb;
 
-  ptc->item_style = "padding";
-
-  genlist = elm_genlist_add(ad->nf);
-
-  elm_genlist_mode_set(genlist, ELM_LIST_COMPRESS);
-
-  elm_object_style_set(genlist, "focus_bg");
-
-  circle_genlist = eext_circle_object_genlist_add(genlist, ad->circle_surface);
-  eext_circle_object_genlist_scroller_policy_set(circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
-  eext_rotary_object_event_activated_set(circle_genlist, EINA_TRUE);
-
-  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
-
-  GList *entries = NULL;
   db_select_all(&entries);
 
   if (entries == NULL) {
-    Evas_Object *popup = elm_popup_add(ad->nf);
+    popup = elm_popup_add(ad->nf);
     elm_object_style_set(popup, "circle");
     evas_object_size_hint_weight_set(popup, EVAS_HINT_EXPAND, EVAS_HINT_EXPAND);
 
-    Evas_Object *layout = elm_layout_add(popup);
+    layout = elm_layout_add(popup);
     elm_layout_theme_set(layout, "layout", "popup", "content/circle");
 
     elm_object_part_text_set(layout, "elm.text", "Add OTP entries with a companion app on your phone");
     elm_object_content_set(popup, layout);
 
     evas_object_show(popup);
+
+    goto free;
   }
 
-  GList* entry = entries;
+  elm_genlist_item_append(ad->menu, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
+
+  entry = entries;
   while (entry != NULL) {
     if (entry->data != NULL) {
       otp_info_s *payload = malloc(sizeof(otp_info_s));
@@ -118,9 +107,9 @@ void menu_create(void *data) {
       }
 
       elm_genlist_item_append(
-          genlist,      // genlist object
-          class,          // item class
-          payload,      // data
+          ad->menu, // genlist object
+          class,    // item class
+          payload,  // data
           NULL,
           ELM_GENLIST_ITEM_NONE,
           menu_sel_cb,
@@ -129,19 +118,34 @@ void menu_create(void *data) {
     entry = g_list_next(entry);
   }
 
-	evas_object_smart_callback_add(genlist, "longpressed", menu_longpressed_cb, NULL);
+  elm_genlist_item_append(ad->menu, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
 
-  elm_genlist_item_append(genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
-
+free:
+  elm_genlist_item_class_free(style_1text);
   elm_genlist_item_class_free(style_2text);
   g_list_free_full(entries, free);
+}
 
-  /* This button is set for devices which doesn't have H/W back key. */
-  Evas_Object *btn;
+void menu_create(appdata_s *ad) {
+  Evas_Object *circle_genlist = NULL, *btn = NULL;
+  Elm_Object_Item *nf_it = NULL;
+
+  ad->menu = elm_genlist_add(ad->nf);
+  elm_genlist_mode_set(ad->menu, ELM_LIST_COMPRESS);
+  elm_object_style_set(ad->menu, "focus_bg");
+	evas_object_smart_callback_add(ad->menu, "longpressed", menu_longpressed_cb, NULL);
+
+  circle_genlist = eext_circle_object_genlist_add(ad->menu, ad->circle_surface);
+  eext_circle_object_genlist_scroller_policy_set(circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
+  eext_rotary_object_event_activated_set(circle_genlist, EINA_TRUE);
+
+   /* This button is set for devices which doesn't have H/W back key. */
   btn = elm_button_add(ad->nf);
   elm_object_style_set(btn, "naviframe/end_btn/default");
 
-  Elm_Object_Item *nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, genlist, "empty");
+  menu_items_create(ad);
+
+  nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, ad->menu, "empty");
   elm_naviframe_item_pop_cb_set(nf_it, menu_pop_cb, ad->win);
 }
 

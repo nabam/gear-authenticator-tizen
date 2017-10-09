@@ -145,18 +145,18 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
 	elm_object_part_content_set(cvd->layout, "elm.swallow.content", box);
 
   /* Name label */
-  cvd->name_label = elm_label_add(box);
-  evas_object_size_hint_align_set(cvd->name_label, 0.5, 0.5);
-  evas_object_size_hint_weight_set(cvd->name_label, 0, 0);
+  Evas_Object *name_label = elm_label_add(box);
+  evas_object_size_hint_align_set(name_label, 0.5, 0.5);
+  evas_object_size_hint_weight_set(name_label, 0, 0);
 
   int ww;
   if(system_info_get_platform_int("tizen.org/feature/screen.width", &ww) == SYSTEM_INFO_ERROR_NONE) {
     ww = 350;
   }
-  elm_label_wrap_width_set(cvd->name_label, ww * 0.9);
-  elm_label_slide_mode_set(cvd->name_label, ELM_LABEL_SLIDE_MODE_AUTO);
-  elm_object_style_set(cvd->name_label, "slide_bounce");
-  elm_label_slide_duration_set(cvd->name_label, 2);
+  elm_label_wrap_width_set(name_label, ww * 0.9);
+  elm_label_slide_mode_set(name_label, ELM_LABEL_SLIDE_MODE_AUTO);
+  elm_object_style_set(name_label, "slide_bounce");
+  elm_label_slide_duration_set(name_label, 2);
 
   char label[255], issuer[255], account[255];
   get_otp_account(cvd->entry->label, account);
@@ -170,10 +170,10 @@ void code_view_create(appdata_s *ad, otp_info_s *entry)
     elm_box_align_set(box, EVAS_HINT_FILL, 0.4);
   }
 
-  elm_object_text_set(cvd->name_label, label);
-  elm_label_slide_go(cvd->name_label);
-  evas_object_show(cvd->name_label);
-  elm_box_pack_end(box, cvd->name_label);
+  elm_object_text_set(name_label, label);
+  elm_label_slide_go(name_label);
+  evas_object_show(name_label);
+  elm_box_pack_end(box, name_label);
 
   /* Code label */
   cvd->code_label = elm_label_add(box);
