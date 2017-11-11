@@ -26,6 +26,8 @@ static char * menu_text_get_cb(void *data, Evas_Object *obj, const char *part)
 
 static Eina_Bool menu_pop_cb(void *data, Elm_Object_Item *it)
 {
+  appdata_s *ad = data;
+  free(ad->menu);
   ui_app_exit();
   return EINA_FALSE;
 }
@@ -38,9 +40,11 @@ static void menu_del_cb(void *data, Evas_Object *obj)
 
 static void menu_sel_cb(void *data, Evas_Object *obj, void *event_info)
 {
+  appdata_s *ad = data;
 	Elm_Object_Item *it = (Elm_Object_Item *)event_info;
 	elm_genlist_item_selected_set(it, EINA_FALSE);
 
+  eext_rotary_object_event_activated_set(ad->menu->circle_genlist, EINA_FALSE);
   code_view_create(data, elm_object_item_data_get(it));
 
 	return;
@@ -90,7 +94,7 @@ void menu_items_create(appdata_s *ad) {
     goto free;
   }
 
-  elm_genlist_item_append(ad->menu, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
+  elm_genlist_item_append(ad->menu->genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
 
   entry = entries;
   while (entry != NULL) {
@@ -107,7 +111,7 @@ void menu_items_create(appdata_s *ad) {
       }
 
       elm_genlist_item_append(
-          ad->menu, // genlist object
+          ad->menu->genlist, // genlist object
           class,    // item class
           payload,  // data
           NULL,
@@ -118,7 +122,7 @@ void menu_items_create(appdata_s *ad) {
     entry = g_list_next(entry);
   }
 
-  elm_genlist_item_append(ad->menu, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
+  elm_genlist_item_append(ad->menu->genlist, ptc, NULL, NULL, ELM_GENLIST_ITEM_NONE, NULL, NULL);
 
 free:
   elm_genlist_item_class_free(style_1text);
@@ -127,17 +131,20 @@ free:
 }
 
 void menu_create(appdata_s *ad) {
-  Evas_Object *circle_genlist = NULL, *btn = NULL;
+  menu_data_s *md = calloc(1, sizeof(menu_data_s));
+  Evas_Object *btn = NULL;
   Elm_Object_Item *nf_it = NULL;
 
-  ad->menu = elm_genlist_add(ad->nf);
-  elm_genlist_mode_set(ad->menu, ELM_LIST_COMPRESS);
-  elm_object_style_set(ad->menu, "focus_bg");
-	evas_object_smart_callback_add(ad->menu, "longpressed", menu_longpressed_cb, NULL);
+  md->genlist = elm_genlist_add(ad->nf);
+  elm_genlist_mode_set(md->genlist, ELM_LIST_COMPRESS);
+  elm_object_style_set(md->genlist, "focus_bg");
+	evas_object_smart_callback_add(md->genlist, "longpressed", menu_longpressed_cb, NULL);
 
-  circle_genlist = eext_circle_object_genlist_add(ad->menu, ad->circle_surface);
-  eext_circle_object_genlist_scroller_policy_set(circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
-  eext_rotary_object_event_activated_set(circle_genlist, EINA_TRUE);
+  md->circle_genlist = eext_circle_object_genlist_add(md->genlist, ad->circle_surface);
+  eext_circle_object_genlist_scroller_policy_set(md->circle_genlist, ELM_SCROLLER_POLICY_OFF, ELM_SCROLLER_POLICY_AUTO);
+  eext_rotary_object_event_activated_set(md->circle_genlist, EINA_TRUE);
+
+  ad->menu = md;
 
    /* This button is set for devices which doesn't have H/W back key. */
   btn = elm_button_add(ad->nf);
@@ -145,7 +152,7 @@ void menu_create(appdata_s *ad) {
 
   menu_items_create(ad);
 
-  nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, ad->menu, "empty");
+  nf_it = elm_naviframe_item_push(ad->nf, NULL, btn, NULL, ad->menu->genlist, "empty");
   elm_naviframe_item_pop_cb_set(nf_it, menu_pop_cb, ad->win);
 }
 

@@ -35,12 +35,17 @@ typedef struct code_view_data {
   otp_info_s          *entry;
 } code_view_data_s;
 
+typedef struct menu_data {
+  Evas_Object         *genlist;
+  Evas_Object         *circle_genlist;
+} menu_data_s;
+
 typedef struct appdata {
   Evas_Object         *win;
   Evas_Object         *nf;
   Eext_Circle_Surface *circle_surface;
   code_view_data_s    *current_cvd;
-  Evas_Object         *menu;
+  menu_data_s         *menu;
 } appdata_s;
 
 void get_otp_account(char* item, char *res);

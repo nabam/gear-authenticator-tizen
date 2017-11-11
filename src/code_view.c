@@ -80,6 +80,7 @@ static Eina_Bool code_view_pop_cb(void *data, Elm_Object_Item *it)
     free(cvd);
   }
 
+  eext_rotary_object_event_activated_set(ad->menu->circle_genlist, EINA_TRUE);
   return EINA_TRUE;
 }
 
